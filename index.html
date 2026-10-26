@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#111326">
+<meta name="description" content="Бесплатная рулетка случайного выбора. Добавляйте варианты и крутите колесо.">
+<title>Spin Wheel — рулетка выбора</title>
+<style>
+:root{color-scheme:dark;--bg:#101222;--panel:#191c32;--muted:#aeb4d0;--text:#f8f8ff;--accent:#a78bfa;--line:#303452}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--text);background:radial-gradient(ellipse at 50% 0%,#29214c 0%,#15172b 43%,#0d1020 100%);padding:20px 14px calc(28px + env(safe-area-inset-bottom))}
+main{max-width:760px;margin:0 auto}
+header{text-align:center;margin:8px 0 20px}
+.logo{display:inline-grid;place-items:center;width:52px;height:52px;border-radius:17px;background:linear-gradient(135deg,#a78bfa,#60a5fa);font-size:27px;box-shadow:0 8px 28px #8b5cf644}
+h1{font-size:clamp(27px,6vw,38px);margin:12px 0 5px;letter-spacing:-.04em}
+.subtitle{margin:0;color:var(--muted);font-size:14px}
+.card{background:#171a2dcc;border:1px solid var(--line);border-radius:24px;padding:clamp(14px,4vw,24px);box-shadow:0 20px 60px #0003;backdrop-filter:blur(12px)}
+.wheel-wrap{position:relative;width:min(82vw,390px);aspect-ratio:1;margin:2px auto 18px;filter:drop-shadow(0 12px 20px #0005)}
+canvas{display:block;width:100%;height:100%;border-radius:50%}
+.pointer{position:absolute;z-index:2;left:50%;top:-7px;transform:translateX(-50%);width:0;height:0;border-left:17px solid transparent;border-right:17px solid transparent;border-top:35px solid #fff;filter:drop-shadow(0 3px 4px #0008)}
+.hub{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:58px;height:58px;border-radius:50%;background:linear-gradient(145deg,#fff,#cdd1ed);border:5px solid #252744;box-shadow:0 2px 9px #0007;pointer-events:none}
+.actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+button{border:0;border-radius:14px;padding:13px 18px;font:700 15px inherit;cursor:pointer;transition:transform .15s,opacity .15s}
+button:active{transform:scale(.98)}
+button:disabled{opacity:.55;cursor:not-allowed}
+.primary{color:#17152b;background:linear-gradient(135deg,#c4b5fd,#7dd3fc);min-width:150px;box-shadow:0 8px 20px #8b5cf633}
+.secondary{background:#292d4a;color:var(--text);border:1px solid #3a3f63}
+.result{margin:16px auto 0;text-align:center;min-height:54px;max-width:520px;padding:12px;border-radius:16px;background:#101326;border:1px solid #303452;color:var(--muted)}
+.result strong{display:block;color:#fff;font-size:21px;margin-top:3px}
+.result.win{border-color:#8b7bea;background:#252044}
+.grid{display:grid;grid-template-columns:1fr;gap:14px;margin-top:16px}
+@media(min-width:620px){.grid{grid-template-columns:1fr 1fr}}
+.section-title{font-size:16px;margin:0 0 10px}
+.hint{color:var(--muted);font-size:12px;line-height:1.5;margin:8px 0 0}
+textarea{width:100%;min-height:150px;resize:vertical;border:1px solid #3a3f63;border-radius:14px;padding:12px;background:#101326;color:var(--text);font:14px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;outline:none}
+textarea:focus{border-color:#a78bfa}
+.small-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.small-actions button{flex:1}
+.stats{display:flex;justify-content:space-between;gap:12px;color:var(--muted);font-size:12px;margin-top:10px}
+footer{text-align:center;color:#8e94b3;font-size:12px;margin:18px auto 0;line-height:1.5;max-width:560px}
+.toast{color:#c4b5fd}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <div class="logo" aria-hidden="true">✦</div>
+  <h1>Крути колесо</h1>
+  <p class="subtitle">Добавь варианты — пусть случай решит за тебя</p>
+</header>
+<section class="card" aria-label="Рулетка">
+  <div class="wheel-wrap">
+    <div class="pointer" aria-hidden="true"></div>
+    <canvas id="wheel" width="800" height="800" aria-label="Колесо случайного выбора"></canvas>
+    <div class="hub" aria-hidden="true"></div>
+  </div>
+  <div class="actions">
+    <button id="spin" class="primary">🎡 Крутить</button>
+    <button id="reset" class="secondary">↻ Сбросить</button>
+  </div>
+  <div id="result" class="result" aria-live="polite">Готово к запуску<strong>Что выпадет?</strong></div>
+</section>
+<div class="grid">
+  <section class="card">
+    <h2 class="section-title">✍️ Мои варианты</h2>
+    <textarea id="options" aria-label="Варианты для рулетки" spellcheck="false">Пицца
+Шаурма
+Суши
+Бургер
+Паста
+Салат</textarea>
+    <div class="small-actions">
+      <button id="apply" class="secondary">Применить варианты</button>
+      <button id="sample" class="secondary">Пример</button>
+    </div>
+    <p class="hint">Каждый вариант — с новой строки. Для красивого колеса рекомендуем 2–12 вариантов.</p>
+    <div class="stats"><span id="count">6 вариантов</span><span id="status">Изменения не применены</span></div>
+  </section>
+  <section class="card">
+    <h2 class="section-title">💡 Как пользоваться</h2>
+    <p style="color:var(--muted);font-size:14px;line-height:1.65;margin:0">1. Впиши свои варианты слева.<br>2. Нажми «Применить варианты».<br>3. Нажми «Крутить» и дождись результата.</p>
+    <p class="hint">Результат выбирается случайно на этом устройстве. В этой версии нет аккаунтов, рейтингов или серверного хранения истории.</p>
+  </section>
+</div>
+<footer>Бесплатный MVP · Для развлечения и случайного выбора. Результаты не являются денежным выигрышем.</footer>
+</main>
+<script>
+(() => {
+  const canvas = document.getElementById('wheel');
+  const ctx = canvas.getContext('2d');
+  const optionsInput = document.getElementById('options');
+  const spinBtn = document.getElementById('spin');
+  const applyBtn = document.getElementById('apply');
+  const resetBtn = document.getElementById('reset');
+  const sampleBtn = document.getElementById('sample');
+  const result = document.getElementById('result');
+  const count = document.getElementById('count');
+  const status = document.getElementById('status');
+  const colors = ['#8b5cf6','#ec4899','#f97316','#eab308','#22c55e','#06b6d4','#3b82f6','#6366f1','#d946ef','#14b8a6','#f43f5e','#84cc16'];
+  let options = optionsInput.value.split('\n').map(s=>s.trim()).filter(Boolean);
+  let angle = 0, spinning = false, frame = null;
+  const cx=400, cy=400, radius=385;
+  function fitText(text, maxWidth, startSize) {
+    let size=startSize;
+    while(size>17){ctx.font=`700 ${size}px system-ui, sans-serif`;if(ctx.measureText(text).width<=maxWidth)break;size--;}
+    return size;
+  }
+  function draw() {
+    const n=options.length || 1, arc=Math.PI*2/n;
+    ctx.clearRect(0,0,800,800);
+    ctx.save();ctx.translate(cx,cy);ctx.rotate(angle);
+    for(let i=0;i<n;i++){
+      const start=-Math.PI/2+i*arc, end=start+arc;
+      ctx.beginPath();ctx.moveTo(0,0);ctx.arc(0,0,radius,start,end);ctx.closePath();
+      ctx.fillStyle=colors[i%colors.length];ctx.fill();
+      ctx.strokeStyle='#ffffff';ctx.lineWidth=4;ctx.stroke();
+      ctx.save();ctx.rotate(start+arc/2);ctx.translate(radius*.64,0);
+      ctx.rotate(Math.PI/2);
+      const label=options[i] || 'Вариант';
+      const size=fitText(label,Math.max(55,radius*arc*.8),29);
+      ctx.font=`700 ${size}px system-ui, sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillStyle='#fff';ctx.shadowColor='#0005';ctx.shadowBlur=3;
+      let display=label;
+      while(ctx.measureText(display).width>radius*.72 && display.length>5)display=display.slice(0,-2)+'…';
+      ctx.fillText(display,0,-radius*.18);
+      ctx.restore();
+    }
+    ctx.restore();
+    ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.strokeStyle='#ffffff';ctx.lineWidth=8;ctx.stroke();
+  }
+  function setResult(title, subtitle, win=false){
+    result.classList.toggle('win',win);
+    result.innerHTML='';
+    result.append(document.createTextNode(title));
+    const strong=document.createElement('strong');strong.textContent=subtitle;result.append(strong);
+  }
+  function applyOptions(){
+    const next=optionsInput.value.split('\n').map(s=>s.trim()).filter(Boolean).slice(0,40);
+    if(next.length<2){setResult('Добавь хотя бы два варианта','Например: чай и кофе');return;}
+    options=next;angle=0;draw();count.textContent=`${options.length} ${options.length===1?'вариант':options.length<5?'варианта':'вариантов'}`;
+    status.textContent='Варианты применены';setResult('Готово к запуску','Что выпадет?');
+  }
+  function spin(){
+    if(spinning || options.length<2)return;
+    spinning=true;spinBtn.disabled=true;applyBtn.disabled=true;resetBtn.disabled=true;
+    setResult('Колесо вращается…','Удачи!');
+    const startAngle=angle, start=performance.now();
+    const extra=(5+Math.random()*4)*Math.PI*2 + Math.random()*Math.PI*2;
+    const duration=4300+Math.random()*900;
+    function animate(now){
+      const t=Math.min(1,(now-start)/duration), eased=1-Math.pow(1-t,4);
+      angle=startAngle+extra*eased;draw();
+      if(t<1){frame=requestAnimationFrame(animate);return;}
+      spinning=false;spinBtn.disabled=false;applyBtn.disabled=false;resetBtn.disabled=false;
+      const arc=Math.PI*2/options.length;
+      // Pointer is at top (-PI/2); map pointer angle into wheel's local coordinates.
+      let local=((-angle%(Math.PI*2))+Math.PI*2)%(Math.PI*2);
+      const index=Math.floor(local/arc)%options.length;
+      setResult('🎉 Выпало:',options[index],true);
+    }
+    frame=requestAnimationFrame(animate);
+  }
+  applyBtn.addEventListener('click',applyOptions);
+  spinBtn.addEventListener('click',spin);
+  resetBtn.addEventListener('click',()=>{if(spinning)return;angle=0;draw();setResult('Колесо сброшено','Можно крутить снова');});
+  sampleBtn.addEventListener('click',()=>{optionsInput.value='Кофе\nЧай\nПрогулка\nКино\nСюрприз\nОтдых';applyOptions();});
+  optionsInput.addEventListener('input',()=>{status.textContent='Есть несохранённые изменения';});
+  draw();
+})();
+</script>
+</body>
+</html>
